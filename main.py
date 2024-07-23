@@ -1,5 +1,3 @@
-# Fans of Elon Musk Better Our Yields Sentiment Analysis Index Scraper
-
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -19,9 +17,6 @@ load_dotenv()
 user = os.getenv('EMAIL')
 password = os.getenv('PASSWORD')
 username = os.getenv("USERNAME")
-
-# https://stackoverflow.com/questions/53680597/how-to-find-all-elements-on-the-webpage-through-scrolling-using-seleniumwebdrive
-# edge case: grabs subtweet from someone else
 
 start = time.time()
 
@@ -90,7 +85,7 @@ wait.until(EC.element_to_be_clickable((By.XPATH, login_button_path))).click()
 wait.until(EC.element_to_be_clickable((By.XPATH, "//label"))).send_keys(user)
 wait.until(EC.element_to_be_clickable((By.XPATH, next_button_path))).click()
 
-# Check if unusual activity detected lol
+# Check if unusual activity detected
 
 wait.until(
     EC.visibility_of_all_elements_located((By.XPATH, check_unusual_activity_path))
@@ -113,15 +108,12 @@ pbar = tqdm(total=total)
 time.sleep(5)
 body = driver.find_element(By.CSS_SELECTOR, "body")
 
-
-lock = False
-
 def process_containers(containers):
-    global lock
     res = False
     for container in containers:
         try:
-            name = container.find_element(by=By.XPATH, value=tweet_text_path).text
+            tweet_text_container = container.find_element(by=By.XPATH, value=tweet_text_path)
+            name = tweet_text_container.text
             ts = container.find_element(by=By.XPATH,value=timestamp_path).get_attribute("datetime")
             if name in processed_tweets or name == "\n" or name == "":
                 continue
@@ -131,28 +123,26 @@ def process_containers(containers):
             processed_tweets.add(name)
             res = True
         except Exception as e:
-            print(f"Error")
+            print(f"\nError: ", e)
     
     return res
-    #print("Processed")
 
-term_limit = 0
+term_limit = 0 # variable to automatically break if cannot scroll further
 
 while len(data) < total:
     wait.until(
         EC.visibility_of_all_elements_located((By.XPATH, elon_tweet_container_path))
     )
-    lock = True
     containers = driver.find_elements(by=By.XPATH, value=elon_tweet_container_path)
     if not process_containers(containers):
         term_limit += 1
     else:
         term_limit = 0
-    lock = False
-    body.send_keys(Keys.PAGE_DOWN)
-    wait.until(lambda x: not lock)
     if term_limit >= 10:
         break
+
+    body.send_keys(Keys.PAGE_DOWN)
+    time.sleep(1)
 
 np.savetxt("Tweets.txt", names, delimiter=", ", fmt="% s", encoding="utf8")
 res = pd.DataFrame(data=np.array(data),columns = ["Text","Timestamp"])
